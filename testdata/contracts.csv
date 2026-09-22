@@ -1,0 +1,5 @@
+contract_id,customer_bin,contract_date,item_name,unit,quantity_units,amount_kzt
+A,111,2025-01-01,Paper,pack,2,100
+B,111,2025-01-31,paper,PACK,2,100
+C,222,2025-01-31,paper,pack,2,100
+D,111,2025-02-02,paper,pack,2,100
