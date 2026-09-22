@@ -13,3 +13,5 @@ go vet ./...
 Вход содержит ровно поля `contract_id,customer_bin,contract_date,item_name,unit,quantity_units,amount_kzt`. Дата имеет формат ISO `YYYY-MM-DD`; количество и сумма являются неотрицательными целыми. Идентификаторы не повторяются. Выход стабилен и содержит `base_contract_id,repeated_contract_id,customer_bin,days_between,rule_version`.
 
 Репозиторий создан для Assignment 3. Данные в `testdata` синтетические.
+
+Каждая строка результата означает пару для ручной проверки: совпадение не является доказательством нарушения и не заменяет изучение документов.
