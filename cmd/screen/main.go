@@ -10,16 +10,14 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 || os.Args[1] != "screen" {
-		fmt.Fprintln(os.Stderr, "usage: screen -input <file> -output <file> -window-days 30")
-		os.Exit(2)
-	}
 	f := flag.NewFlagSet("screen", flag.ExitOnError)
 	in := f.String("input", "", "input CSV")
 	dest := f.String("output", "", "output CSV")
 	window := f.Int("window-days", 30, "inclusive window in days")
-	_ = f.Parse(os.Args[2:])
-	if *in == "" || *dest == "" || *window < 0 {
+	if err := f.Parse(os.Args[1:]); err != nil {
+		os.Exit(2)
+	}
+	if f.NArg() != 0 || *in == "" || *dest == "" || *window < 0 {
 		fmt.Fprintln(os.Stderr, "input, output and nonnegative window-days are required")
 		os.Exit(2)
 	}
@@ -32,11 +30,19 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
+	if existing, err := os.Stat(*dest); err == nil {
+		inputInfo, err := fi.Stat()
+		if err != nil {
+			fail(err)
+		}
+		if os.SameFile(inputInfo, existing) {
+			fail(fmt.Errorf("input and output refer to the same file"))
+		}
+	}
 	fo, err := os.Create(*dest)
 	if err != nil {
 		fail(err)
 	}
-	defer fo.Close()
 	w := csv.NewWriter(fo)
 	_ = w.Write([]string{"base_contract_id", "repeated_contract_id", "customer_bin", "days_between", "rule_version"})
 	for _, m := range screening.Screen(contracts, *window) {
@@ -44,6 +50,10 @@ func main() {
 	}
 	w.Flush()
 	if err := w.Error(); err != nil {
+		_ = fo.Close()
+		fail(err)
+	}
+	if err := fo.Close(); err != nil {
 		fail(err)
 	}
 }

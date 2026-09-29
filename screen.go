@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const RuleVersion = "repeated-need-v1"
+const RuleVersion = "repeated-need-v2"
 
 type Contract struct {
 	ID, CustomerBIN, ItemName, Unit string
@@ -57,6 +57,12 @@ func Read(r io.Reader) ([]Contract, error) {
 			return nil, fmt.Errorf("row %d: duplicate or empty contract_id", n)
 		}
 		seen[id] = true
+		customer := strings.TrimSpace(rec[1])
+		item := strings.ToLower(strings.TrimSpace(rec[3]))
+		unit := strings.ToLower(strings.TrimSpace(rec[4]))
+		if customer == "" || item == "" || unit == "" {
+			return nil, fmt.Errorf("row %d: customer_bin, item_name and unit are required", n)
+		}
 		date, err := time.Parse("2006-01-02", strings.TrimSpace(rec[2]))
 		if err != nil {
 			return nil, fmt.Errorf("row %d: invalid contract_date", n)
@@ -69,7 +75,7 @@ func Read(r io.Reader) ([]Contract, error) {
 		if err != nil {
 			return nil, fmt.Errorf("row %d: invalid amount_kzt", n)
 		}
-		out = append(out, Contract{ID: id, CustomerBIN: strings.TrimSpace(rec[1]), Date: date, ItemName: strings.ToLower(strings.TrimSpace(rec[3])), Unit: strings.ToLower(strings.TrimSpace(rec[4])), Quantity: q, Amount: a})
+		out = append(out, Contract{ID: id, CustomerBIN: customer, Date: date, ItemName: item, Unit: unit, Quantity: q, Amount: a})
 	}
 	return out, nil
 }
@@ -87,18 +93,21 @@ func Screen(cs []Contract, window int) []Match {
 		return nil
 	}
 	var out []Match
+	// ponytail: O(n²) fits the small synthetic sets; group and sort by keys if measured input scale needs it.
 	for i, base := range cs {
 		for j := i + 1; j < len(cs); j++ {
 			r := cs[j]
 			if base.CustomerBIN != r.CustomerBIN || base.ItemName != r.ItemName || base.Unit != r.Unit || base.Quantity != r.Quantity || base.Amount != r.Amount {
 				continue
 			}
-			days := int(r.Date.Sub(base.Date).Hours() / 24)
-			if days < 0 {
-				continue
+			// Unix seconds cover the full four-digit CSV year range without time.Duration overflow.
+			first, second := base, r
+			if second.Date.Before(first.Date) {
+				first, second = second, first
 			}
+			days := int((second.Date.Unix() - first.Date.Unix()) / 86400)
 			if days <= window {
-				out = append(out, Match{base.ID, r.ID, base.CustomerBIN, days})
+				out = append(out, Match{first.ID, second.ID, first.CustomerBIN, days})
 			}
 		}
 	}
